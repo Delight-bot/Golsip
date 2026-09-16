@@ -4,6 +4,7 @@ import base64
 import json
 import time
 from collections import deque
+from itertools import islice
 from pathlib import Path
 
 import pandas as pd
@@ -19,6 +20,17 @@ GASP_SECONDS = 10  # how long the cat stays shocked after an alert
 REFRESH_SECONDS = 2
 CHART_MINUTES = 15
 RECENT_EDITS = 12
+
+# Kept long enough that changing the watchlist re-filters recent history
+# instead of only affecting edits that arrive from now on.
+BUFFER_SIZE = 3000
+WATCHLIST_MATCHES = 10
+
+DEFAULT_WATCHLIST = "election\nfootball\nfilm\nmusic"
+
+# The watchlist only looks at real articles written by people, same as trending.
+WIKIS = {"enwiki"}
+ARTICLE_NAMESPACE = 0
 
 ASSETS = Path(__file__).parent / "assets"
 
@@ -53,7 +65,7 @@ if "edits_per_minute" not in state:
     state.edits_per_minute = {}  # minute number -> how many edits
     state.bots = 0
     state.humans = 0
-    state.recent = deque(maxlen=RECENT_EDITS)
+    state.recent = deque(maxlen=BUFFER_SIZE)
     state.leaderboard = []
     state.alert = None
 
@@ -101,6 +113,28 @@ state.edits_per_minute = {
 st.title("Gol-sip")
 st.caption("Live Wikipedia chatter, streamed through Apache Kafka")
 
+with st.sidebar:
+    st.subheader("Watchlist")
+    raw_watchlist = st.text_area(
+        "One topic per line",
+        value=DEFAULT_WATCHLIST,
+        height=160,
+        help="Articles whose titles contain these words get their own panel.",
+    )
+
+watchlist = [word.strip().lower() for word in raw_watchlist.splitlines() if word.strip()]
+
+
+def watched(edit):
+    """True if this edit is an article a person edited that we're watching."""
+    if edit["wiki"] not in WIKIS or edit.get("namespace") != ARTICLE_NAMESPACE:
+        return False
+    if edit["bot"]:
+        return False
+
+    title = edit["title"].lower()
+    return any(word in title for word in watchlist)
+
 cat_column, data_column = st.columns([1, 2], gap="large")
 
 with cat_column:
@@ -136,6 +170,16 @@ with cat_column:
         st.progress(human_share)
 
 with data_column:
+    if watchlist:
+        st.subheader("On your watchlist")
+
+        matches = list(islice((e for e in state.recent if watched(e)), WATCHLIST_MATCHES))
+        if matches:
+            for edit in matches:
+                st.text(f"{edit['user']:<20} {edit['title']}")
+        else:
+            st.caption("Nothing matching yet.")
+
     st.subheader("Trending now")
 
     if state.leaderboard:
@@ -168,7 +212,7 @@ with data_column:
         st.info("Waiting for edits. Is the producer running?")
 
     st.subheader("Latest edits")
-    for edit in state.recent:
+    for edit in islice(state.recent, RECENT_EDITS):
         who = "bot" if edit["bot"] else "human"
         st.text(f"{who:<6} {edit['wiki']:<14} {edit['title']}")
 
