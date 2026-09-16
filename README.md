@@ -85,6 +85,19 @@ was fine the whole time — every message is UTF-8 — but printing crashed the 
 
 ---
 
+## Built with
+
+| Layer | What |
+|---|---|
+| Language | Python 3.13 |
+| Broker | Apache Kafka 4.1 in KRaft mode — no ZooKeeper, single broker, 3 partitions per topic |
+| Kafka client | `confluent-kafka` (Python bindings over librdkafka) |
+| Ingestion | `requests` against Wikimedia EventStreams (Server-Sent Events) |
+| Dashboard | Streamlit, with pandas for the edits-per-minute chart |
+| Infrastructure | Docker Compose |
+
+---
+
 ## Running it locally
 
 Requires Docker Desktop and Python 3.
