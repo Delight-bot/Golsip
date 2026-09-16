@@ -42,7 +42,7 @@ Producers only write to Kafka; consumers only read. Neither knows the other exis
 |---|---|
 | `gossip.wiki.edits` | Raw Wikipedia edit events |
 | `gossip.reddit.posts` | New posts from chosen subreddits (Phase 5) |
-| `gossip.trending` | Pages/topics flagged as hot (e.g. 10+ edits in 5 min) |
+| `gossip.trending` | Top-10 leaderboard snapshots, published every 30s |
 | `gossip.alerts` | Spike alerts that trigger the gasping cat |
 
 ## Folder structure
@@ -63,8 +63,8 @@ gossip/
 ├── dashboard/
 │   ├── app.py               # Streamlit UI
 │   └── assets/
-│       ├── cat_calm.png
-│       └── cat_gasp.png
+│       ├── cat_calm.svg
+│       └── cat_gasp.svg
 ├── experiments/
 │   └── notes.md             # results of breaking things on purpose
 └── README.md
@@ -107,13 +107,19 @@ services:
 ### Phase 1 – Wikipedia producer
 - Connect to Wikimedia EventStreams (recent changes, server-sent events).
 - Send a descriptive User-Agent header (Wikimedia requires it).
-- Keep fields: page title, wiki, user, bot flag, timestamp.
+- Keep fields: page title, wiki, user, bot flag, namespace, timestamp.
+- Produce everything unfiltered; consumers decide what they care about.
+- Reconnect on dropped connections, resuming via the SSE `Last-Event-ID` header.
 - Produce JSON to `gossip.wiki.edits`.
 - **Done when:** edits flow into the topic nonstop.
 
 ### Phase 2 – Consumers
 - `printer.py`: print each event.
-- `trend_detector.py`: count edits per page over a sliding 5-minute window; publish hot pages to `gossip.trending`.
+- `trend_detector.py`: sliding 1-hour window; rank enwiki articles by **number of
+  distinct editors** (not raw edits) and publish top-10 snapshots to `gossip.trending`.
+  - Filters out bots, other wikis, and non-article namespaces — batch tools and
+    Commons uploads otherwise dominate the ranking even when not bot-flagged.
+  - Unique editors measures interest; raw edits just measures activity.
 - `stats.py`: edits per minute, bot vs human split.
 - **Done when:** terminal shows "🔥 Hot right now: [page]".
 
@@ -127,8 +133,13 @@ Record results in `experiments/notes.md`:
 
 ### Phase 4 – Streamlit dashboard + the cat
 - Live "trending now" list, edits-per-minute chart, bot vs human split, scrolling latest edits.
-- **Spike logic** (in `stats.py`): keep a running average of edits/min. If the current minute is > 2× the average (or > mean + 2 std dev), publish to `gossip.alerts` with the page that caused it.
-- **Cat:** dashboard consumes `gossip.alerts`; shows `cat_gasp.png` (mouth wide open) for a few seconds plus the page name, otherwise `cat_calm.png`. Cat images must be original drawings (no copyrighted characters).
+- **Spike logic** (in `stats.py`): running average of the last 30 minutes. If the
+  current minute is > 2× that average, publish to `gossip.alerts` with the busiest
+  page. Needs 5 minutes of warmup history before it can alert.
+  - Measured on enwiki human article edits only, so a bot batch can't set it off.
+- **Cat:** dashboard consumes `gossip.alerts`; shows `cat_gasp.svg` (mouth wide open)
+  for 10 seconds plus the page name, otherwise `cat_calm.svg`. Original drawings,
+  hand-written SVG (no copyrighted characters).
 - **Done when:** dashboard updates live in the browser and the cat gasps on a spike.
 
 ### Phase 5 – Reddit as second source
@@ -151,10 +162,10 @@ Record results in `experiments/notes.md`:
 
 ## Current status
 - [x] Phase 0 – Setup
-- [ ] Phase 1 – Wikipedia producer
-- [ ] Phase 2 – Consumers
+- [x] Phase 1 – Wikipedia producer
+- [x] Phase 2 – Consumers
 - [ ] Phase 3 – Experiments
-- [ ] Phase 4 – Dashboard + cat
+- [x] Phase 4 – Dashboard + cat
 - [ ] Phase 5 – Reddit
 - [ ] Phase 6 – Polish
 - [ ] Phase 7 – React (optional)

@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 220" width="220" height="220">
+  <ellipse cx="110" cy="196" rx="70" ry="10" fill="#000" opacity="0.07"/>
+
+  <path d="M30 60 l-14 -10 M36 86 l-17 -2 M190 60 l14 -10 M184 86 l17 -2"
+        stroke="#E4738F" stroke-width="5" stroke-linecap="round"/>
+
+  <polygon points="46,76 44,18 98,54" fill="#F2954B"/>
+  <polygon points="174,76 176,18 122,54" fill="#F2954B"/>
+  <polygon points="57,71 56,36 86,57" fill="#F9C6A4"/>
+  <polygon points="163,71 164,36 134,57" fill="#F9C6A4"/>
+
+  <ellipse cx="110" cy="120" rx="68" ry="62" fill="#F2954B"/>
+
+  <path d="M92 64 l5 20" stroke="#D97B33" stroke-width="7" stroke-linecap="round"/>
+  <path d="M128 64 l-5 20" stroke="#D97B33" stroke-width="7" stroke-linecap="round"/>
+  <path d="M48 104 l16 5" stroke="#D97B33" stroke-width="7" stroke-linecap="round"/>
+  <path d="M172 104 l-16 5" stroke="#D97B33" stroke-width="7" stroke-linecap="round"/>
+
+  <path d="M68 92 q14 -12 30 -4" stroke="#3A2A20" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <path d="M152 92 q-14 -12 -30 -4" stroke="#3A2A20" stroke-width="4" fill="none" stroke-linecap="round"/>
+
+  <circle cx="84" cy="116" r="17" fill="#FFF"/>
+  <circle cx="136" cy="116" r="17" fill="#FFF"/>
+  <circle cx="84" cy="116" r="11" fill="#3A2A20"/>
+  <circle cx="136" cy="116" r="11" fill="#3A2A20"/>
+  <circle cx="88" cy="111" r="4" fill="#FFF"/>
+  <circle cx="140" cy="111" r="4" fill="#FFF"/>
+
+  <path d="M110 142 l-8 -7 16 0 z" fill="#E4738F"/>
+
+  <ellipse cx="110" cy="166" rx="23" ry="27" fill="#3A2A20"/>
+  <ellipse cx="110" cy="178" rx="14" ry="13" fill="#E4738F"/>
+
+  <path d="M76 140 l-30 -10" stroke="#3A2A20" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+  <path d="M76 150 l-31 4" stroke="#3A2A20" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+  <path d="M144 140 l30 -10" stroke="#3A2A20" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+  <path d="M144 150 l31 4" stroke="#3A2A20" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+</svg>
