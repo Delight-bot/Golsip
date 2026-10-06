@@ -1,6 +1,7 @@
 """Phase 4: report edits per minute, the bot/human split, and spot spikes."""
 
 import json
+import os
 import sys
 import time
 from collections import deque
@@ -10,7 +11,8 @@ from confluent_kafka import Consumer, Producer
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-BROKER = "localhost:9092"
+# Locally Kafka is on localhost; on Railway this is set to the Kafka service's address.
+BROKER = os.environ.get("KAFKA_BROKER", "localhost:9092")
 SOURCE_TOPIC = "gossip.wiki.edits"
 ALERTS_TOPIC = "gossip.alerts"
 

@@ -1,13 +1,15 @@
 """Phase 2: read edits back out of Kafka and print them. The simplest consumer."""
 
 import json
+import os
 import sys
 
 from confluent_kafka import Consumer
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-BROKER = "localhost:9092"
+# Locally Kafka is on localhost; on Railway this is set to the Kafka service's address.
+BROKER = os.environ.get("KAFKA_BROKER", "localhost:9092")
 TOPIC = "gossip.wiki.edits"
 
 consumer = Consumer(

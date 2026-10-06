@@ -1,6 +1,7 @@
 """Phase 1: stream live Wikipedia edits from Wikimedia EventStreams into Kafka."""
 
 import json
+import os
 import sys
 import time
 
@@ -11,13 +12,14 @@ from confluent_kafka import Producer
 # titles. Kafka always gets UTF-8; this just stops printing from crashing.
 sys.stdout.reconfigure(encoding="utf-8")
 
-BROKER = "localhost:9092"
+# Locally Kafka is on localhost; on Railway this is set to the Kafka service's address.
+BROKER = os.environ.get("KAFKA_BROKER", "localhost:9092")
 TOPIC = "gossip.wiki.edits"
 STREAM_URL = "https://stream.wikimedia.org/v2/stream/recentchange"
 RECONNECT_SECONDS = 5
 
 # Wikimedia asks every client to identify itself. Put your own contact here.
-USER_AGENT = "Gossip/0.1 (Kafka learning project; https://github.com/YOUR-USERNAME)"
+USER_AGENT = "Gossip/0.1 (Kafka learning project; https://github.com/Delight-bot/Golsip)"
 
 
 def on_delivery(error, message):

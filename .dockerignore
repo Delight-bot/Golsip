@@ -1,0 +1,7 @@
+# Things the image doesn't need. .venv is a Windows install that can't run on Linux anyway.
+.venv/
+.git/
+__pycache__/
+*.pyc
+docs/
+experiments/

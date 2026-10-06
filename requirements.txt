@@ -1,3 +1,4 @@
-confluent-kafka
-requests
-streamlit
+confluent-kafka==2.15.1
+pandas==3.0.5
+requests==2.34.2
+streamlit==1.64.0

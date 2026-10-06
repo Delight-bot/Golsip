@@ -1,6 +1,7 @@
 """Phase 2: rank the pages drawing the most different editors in the last hour."""
 
 import json
+import os
 import sys
 import time
 from collections import deque
@@ -9,7 +10,8 @@ from confluent_kafka import Consumer, Producer
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-BROKER = "localhost:9092"
+# Locally Kafka is on localhost; on Railway this is set to the Kafka service's address.
+BROKER = os.environ.get("KAFKA_BROKER", "localhost:9092")
 SOURCE_TOPIC = "gossip.wiki.edits"
 TRENDING_TOPIC = "gossip.trending"
 

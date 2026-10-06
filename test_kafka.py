@@ -1,10 +1,12 @@
 """Phase 0 sanity check: send one message to Kafka, then read it back."""
 
+import os
 import time
 
 from confluent_kafka import Consumer, Producer
 
-BROKER = "localhost:9092"
+# Locally Kafka is on localhost; on Railway this is set to the Kafka service's address.
+BROKER = os.environ.get("KAFKA_BROKER", "localhost:9092")
 TOPIC = "gossip.test"
 MESSAGE = "meow, kafka is alive"
 

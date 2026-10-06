@@ -2,16 +2,20 @@
 
 import base64
 import json
+import os
+import threading
 import time
 from collections import deque
 from itertools import islice
 from pathlib import Path
+from types import SimpleNamespace
 
 import pandas as pd
 import streamlit as st
 from confluent_kafka import Consumer
 
-BROKER = "localhost:9092"
+# Locally Kafka is on localhost; on Railway this is set to the Kafka service's address.
+BROKER = os.environ.get("KAFKA_BROKER", "localhost:9092")
 EDITS_TOPIC = "gossip.wiki.edits"
 TRENDING_TOPIC = "gossip.trending"
 ALERTS_TOPIC = "gossip.alerts"
@@ -37,19 +41,107 @@ ASSETS = Path(__file__).parent / "assets"
 st.set_page_config(page_title="Gol-sip", page_icon="🐱", layout="wide")
 
 
+class Feed:
+    """Everything the dashboard shows, shared by every visitor.
+
+    One background thread reads Kafka and updates it; browser tabs only read.
+    If each tab polled the consumer itself, Kafka would hand every message to
+    whichever tab asked first, and two visitors would each see half the stream.
+    """
+
+    def __init__(self):
+        # The thread writes while tabs read, so both take turns via this lock.
+        self.lock = threading.Lock()
+        self.edits_per_minute = {}  # minute number -> how many edits
+        self.bots = 0
+        self.humans = 0
+        self.recent = deque(maxlen=BUFFER_SIZE)
+        self.leaderboard = []
+        self.alert = None
+
+    def absorb(self, msg):
+        """Fold one Kafka message into the numbers we display."""
+        if msg.error():
+            return
+
+        payload = json.loads(msg.value().decode("utf-8"))
+        topic = msg.topic()
+
+        if topic == EDITS_TOPIC:
+            minute = int(time.time() // 60)
+            self.edits_per_minute[minute] = self.edits_per_minute.get(minute, 0) + 1
+
+            if payload["bot"]:
+                self.bots += 1
+            else:
+                self.humans += 1
+
+            self.recent.appendleft(payload)
+
+        elif topic == TRENDING_TOPIC:
+            # A topic keeps everything ever written to it, including messages
+            # from older versions of the detector that had a different shape.
+            # Skip anything that isn't a leaderboard snapshot.
+            if "top" in payload:
+                # Each snapshot replaces the last, so we draw the newest.
+                self.leaderboard = payload["top"]
+
+        elif topic == ALERTS_TOPIC:
+            self.alert = payload
+
+    def run(self):
+        """Read Kafka forever. Runs in its own thread, never in a page refresh."""
+        consumer = Consumer(
+            {
+                "bootstrap.servers": BROKER,
+                "group.id": "gossip-dashboard",
+                "auto.offset.reset": "latest",
+            }
+        )
+        consumer.subscribe([EDITS_TOPIC, TRENDING_TOPIC, ALERTS_TOPIC])
+
+        while True:
+            messages = consumer.consume(num_messages=500, timeout=1.0)
+
+            with self.lock:
+                for msg in messages:
+                    # If this thread dies, the page silently freezes for every
+                    # visitor. One odd message isn't worth that, so skip it.
+                    try:
+                        self.absorb(msg)
+                    except (ValueError, KeyError, TypeError) as error:
+                        print(f"Skipped a message I couldn't read: {error}")
+
+                # Forget minutes that have scrolled off the chart.
+                cutoff = int(time.time() // 60) - CHART_MINUTES
+                self.edits_per_minute = {
+                    minute: count
+                    for minute, count in self.edits_per_minute.items()
+                    if minute > cutoff
+                }
+
+    def snapshot(self):
+        """A copy for one page refresh to draw from, so the thread can keep
+        writing without changing the numbers halfway through drawing them."""
+        with self.lock:
+            return SimpleNamespace(
+                edits_per_minute=dict(self.edits_per_minute),
+                bots=self.bots,
+                humans=self.humans,
+                recent=list(self.recent),
+                leaderboard=list(self.leaderboard),
+                alert=self.alert,
+            )
+
+
 @st.cache_resource
-def get_consumer():
-    """Built once and reused. Streamlit reruns this whole file on every
-    refresh, so without caching we'd rejoin the group twice a second."""
-    consumer = Consumer(
-        {
-            "bootstrap.servers": BROKER,
-            "group.id": "gossip-dashboard",
-            "auto.offset.reset": "latest",
-        }
-    )
-    consumer.subscribe([EDITS_TOPIC, TRENDING_TOPIC, ALERTS_TOPIC])
-    return consumer
+def get_feed():
+    """Built once for the whole server, not once per visitor. Streamlit reruns
+    this file on every refresh, and caching stops it starting a new thread each time."""
+    feed = Feed()
+    # daemon=True: don't keep the server alive just for this thread on shutdown.
+    threading.Thread(target=feed.run, daemon=True).start()
+    return feed
 
 
 @st.cache_data
@@ -60,55 +152,8 @@ def load_cat(filename):
     return f"data:image/svg+xml;base64,{encoded}"
 
 
-state = st.session_state
-if "edits_per_minute" not in state:
-    state.edits_per_minute = {}  # minute number -> how many edits
-    state.bots = 0
-    state.humans = 0
-    state.recent = deque(maxlen=BUFFER_SIZE)
-    state.leaderboard = []
-    state.alert = None
-
-
-def absorb(messages):
-    """Fold a batch of Kafka messages into the numbers we display."""
-    for msg in messages:
-        if msg.error():
-            continue
-
-        payload = json.loads(msg.value().decode("utf-8"))
-        topic = msg.topic()
-
-        if topic == EDITS_TOPIC:
-            minute = int(time.time() // 60)
-            state.edits_per_minute[minute] = state.edits_per_minute.get(minute, 0) + 1
-
-            if payload["bot"]:
-                state.bots += 1
-            else:
-                state.humans += 1
-
-            state.recent.appendleft(payload)
-
-        elif topic == TRENDING_TOPIC:
-            # A topic keeps everything ever written to it, including messages
-            # from older versions of the detector that had a different shape.
-            # Skip anything that isn't a leaderboard snapshot.
-            if "top" in payload:
-                # Each snapshot replaces the last, so we draw the newest.
-                state.leaderboard = payload["top"]
-
-        elif topic == ALERTS_TOPIC:
-            state.alert = payload
-
-
-absorb(get_consumer().consume(num_messages=3000, timeout=0.3))
-
-# Forget minutes that have scrolled off the chart.
-cutoff = int(time.time() // 60) - CHART_MINUTES
-state.edits_per_minute = {
-    minute: count for minute, count in state.edits_per_minute.items() if minute > cutoff
-}
+# Everything below draws the page from this one frozen copy.
+state = get_feed().snapshot()
 
 st.title("Gol-sip")
 st.caption("Live Wikipedia chatter, streamed through Apache Kafka")
