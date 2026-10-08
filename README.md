@@ -15,17 +15,17 @@ Roughly 500 edits a minute flow through it, about 40% of them made by bots.
 
 ## Architecture
 
-```
-Wikimedia EventStreams (SSE)
-            │
-            ▼
-    wiki_producer.py ──────► gossip.wiki.edits ─┬──► printer.py
-                                                │
-                                                ├──► trend_detector.py ──► gossip.trending ─┐
-                                                │                                           │
-                                                └──► stats.py ───────────► gossip.alerts ───┤
-                                                                                            ▼
-                                                                                    dashboard/app.py
+```mermaid
+flowchart LR
+    A[Wikimedia EventStreams (SSE)] --> B[producers/wiki_producer.py]
+    B --> C[(gossip.wiki.edits)]
+    C --> D[consumers/printer.py]
+    C --> E[consumers/trend_detector.py]
+    C --> F[consumers/stats.py]
+    E --> G[(gossip.trending)]
+    F --> H[(gossip.alerts)]
+    G --> I[dashboard/app.py]
+    H --> I
 ```
 
 Producers only write. Consumers only read. Neither knows the other exists — which is the
